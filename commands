@@ -35,8 +35,10 @@ id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
 mongodb_public_ip=$(docker port ${id} 27017 | awk '{split($0,a,":"); print a[1]}')
 mongodb_private_ip=$(docker inspect ${id} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
 mongodb_port=$(docker port ${id} 27017 | awk '{split($0,a,":"); print a[2]}')
+
 if [[ $mongodb_public_ip = "0.0.0.0" ]]; then
-  mongodb_public_ip=localhost
+  iface=${MONGODB_BIND_INTERFACE:=eth0}
+  mongodb_public_ip=`ifconfig $iface | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
 fi
 
 case "$1" in
@@ -57,7 +59,7 @@ case "$1" in
       MONGODB_PORT="$mongodb_port" \
       MONGODB_USERNAME="$mongodb_username" \
       MONGODB_PASSWORD="$mongodb_password" \
-      MONGO_URL="mongodb://${mongodb_username}:${mongodb_password}@${mongodb_private_ip}:${mongodb_port}/${mongodb_database}"
+      MONGO_URL="mongodb://${mongodb_username}:${mongodb_password}@${mongodb_public_ip}:${mongodb_port}/${mongodb_database}"
     ;;
   mongodb:delete)
     check_container
@@ -80,7 +82,7 @@ case "$1" in
     if [[ "$id" != "" ]]; then
       echo "MongoDB container already running with ID: ${id}"
     else
-      docker run -p 27017:27017 -d -v "$DOKKU_ROOT/.mongodb/data":/tmp/mongo jeffutter/mongodb /usr/bin/mongod --dbpath=/tmp/mongo --auth
+      docker run -p 27017 -d -v "$DOKKU_ROOT/.mongodb/data":/tmp/mongo jeffutter/mongodb /usr/bin/mongod --dbpath=/tmp/mongo --auth
     fi
     ;;
   mongodb:stop)

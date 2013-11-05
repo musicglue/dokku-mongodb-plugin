@@ -22,13 +22,16 @@ if [[ $mongodb_ip = "0.0.0.0" ]]; then
   mongodb_ip=localhost
 fi
 
-echo ${mongodb_ip} > "$DOKKU_ROOT/.mongodb/MONGODB_IP"
-echo ${mongodb_port} > "$DOKKU_ROOT/.mongodb/MONGODB_PORT"
-
 
 apt-key adv --keyserver keyserver.ubuntu.com --recv 7F0CEB10
 echo deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen > /etc/apt/sources.list.d/10gen.list
 apt-get update
 apt-get -y install mongodb-10gen
+if status mongodb | grep start; then
+  service mongodb stop
+fi
+
+rm /etc/init/mongodb.conf # We don't want MongoDB running on the host!
+
 mongo $mongodb_ip:$mongodb_port/admin --eval "db.addUser(\"admin\", \"${admin_pass}\")"
 docker stop "$id"
